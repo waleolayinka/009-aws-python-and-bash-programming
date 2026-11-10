@@ -1,0 +1,68 @@
+name: Destroy Bash AWS resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Project name
+        required: true
+        default: sri
+        type: string
+      environment:
+        description: Deployment environment
+        required: true
+        default: dev
+        type: string
+      region:
+        description: AWS region
+        required: true
+        default: us-east-1
+        type: string
+      confirm_destroy:
+        description: Confirm permanent deletion of database data and S3 contents
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: destroy-bash-${{ inputs.project }}-${{ inputs.environment }}-${{ inputs.region }}
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    name: Destroy AWS resources
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Require explicit destructive confirmation
+        if: ${{ inputs.confirm_destroy != true }}
+        run: |
+          echo "Set confirm_destroy to true to delete this deployment." >&2
+          exit 1
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install figlet for banners
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq figlet
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ inputs.region }}
+
+      - name: Destroy Bash AWS resources
+        shell: bash
+        run: |
+          bash bash-programming/destroy-awsresources.sh \
+            "${{ inputs.project }}" \
+            "${{ inputs.environment }}" \
+            "${{ inputs.region }}" \
+            --yes
