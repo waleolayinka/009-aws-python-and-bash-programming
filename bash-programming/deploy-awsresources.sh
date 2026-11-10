@@ -5,7 +5,7 @@ set -Eeuo pipefail
 #  - they end lines with CRLF; the stray \r ends up inside captured IDs/names and
 #    AWS rejects them, so strip it at the source.
 #  - Git Bash rewrites args that look like Unix paths (e.g. the SSM name
-#    /dev/sri/database/password -> C:/Program Files/Git/dev/...); disable that for aws.
+#    /bash/programming/database/password -> C:/Program Files/Git/bash/...); disable that for aws.
 if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
   aws() { MSYS_NO_PATHCONV=1 command aws "$@" | tr -d '\r'; }
   jq() { command jq "$@" | tr -d '\r'; }
@@ -15,7 +15,7 @@ usage() {
   cat <<'USAGE'
 Usage: deploy-awsresources.sh [project] [environment] [region]
 
-Defaults match the Terraform root module: project=sri, environment=dev,
+Defaults: project=programming, environment=bash,
 region=us-east-1. Set ADDITIONAL_RDS_SECURITY_GROUP_IDS to a comma-separated
 list of existing security group IDs if other services need database access.
 This provisions new resources; it is not safe to rerun against an existing
@@ -53,8 +53,8 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
-project_name="${1:-sri}"
-environment_name="${2:-dev}"
+project_name="${1:-programming}"
+environment_name="${2:-bash}"
 region="${3:-us-east-1}"
 name_prefix="${environment_name}-${project_name}"
 

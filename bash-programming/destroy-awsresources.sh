@@ -5,7 +5,7 @@ set -Eeuo pipefail
 #  - they end lines with CRLF; the stray \r ends up inside captured IDs/names and
 #    AWS rejects them, so strip it at the source.
 #  - Git Bash rewrites args that look like Unix paths (e.g. the SSM name
-#    /dev/sri/database/password -> C:/Program Files/Git/dev/...); disable that for aws.
+#    /bash/programming/database/password -> C:/Program Files/Git/bash/...); disable that for aws.
 if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
   aws() { MSYS_NO_PATHCONV=1 command aws "$@" | tr -d '\r'; }
   jq() { command jq "$@" | tr -d '\r'; }
@@ -15,7 +15,7 @@ usage() {
   cat <<'USAGE'
 Usage: destroy-awsresources.sh [project] [environment] [region] [--yes]
 
-Defaults match deploy-awsresources.sh: project=sri, environment=dev,
+Defaults match deploy-awsresources.sh: project=programming, environment=bash,
 region=us-east-1. The script removes resources with the deployment's names,
 including data in its SSM transfer bucket and database credentials.
 USAGE
@@ -46,8 +46,8 @@ banner() {
   printf '\n'
 }
 
-project_name="sri"
-environment_name="dev"
+project_name="programming"
+environment_name="bash"
 region="us-east-1"
 assume_yes=false
 positional=()
@@ -344,11 +344,20 @@ delete_network_resources() {
       aws route53 wait resource-record-sets-changed --id "$change_id"
     fi
 
-    log INFO "Deleting private hosted zone ${hosted_zone_id}."
-    aws route53 disassociate-vpc-from-hosted-zone \
-      --hosted-zone-id "$hosted_zone_id" \
-      --vpc "VPCRegion=${region},VPCId=${vpc_id}" >/dev/null
-    aws route53 delete-hosted-zone --id "$hosted_zone_id" >/dev/null
+    # A private zone's last VPC association can't be removed (LastVPCAssociation);
+    # deleting the zone drops it. Only disassociate when other VPCs still use the zone.
+    local vpc_count
+    vpc_count="$(aws route53 get-hosted-zone --id "$hosted_zone_id" \
+      --query 'length(VPCs)' --output text)"
+    if [[ "$vpc_count" -gt 1 ]]; then
+      log INFO "Detaching ${vpc_id} from hosted zone ${hosted_zone_id}; other VPCs still use it."
+      aws route53 disassociate-vpc-from-hosted-zone \
+        --hosted-zone-id "$hosted_zone_id" \
+        --vpc "VPCRegion=${region},VPCId=${vpc_id}" >/dev/null
+    else
+      log INFO "Deleting private hosted zone ${hosted_zone_id}."
+      aws route53 delete-hosted-zone --id "$hosted_zone_id" >/dev/null
+    fi
   done <<<"$hosted_zones"
 
   local nat_gateways
