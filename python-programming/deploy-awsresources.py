@@ -507,7 +507,6 @@ def create_database(
         VpcSecurityGroupIds=[db_security_group_id],
         EnablePerformanceInsights=True,
         EnableHttpEndpoint=False,
-        SkipFinalSnapshot=True,
         DBClusterParameterGroupName=parameter_group,
         Tags=tags(cluster_id),
     )["DBCluster"]
