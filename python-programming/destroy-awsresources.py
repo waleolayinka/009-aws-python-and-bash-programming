@@ -41,8 +41,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Tear down resources created by deploy-awsresources.py."
     )
-    parser.add_argument("project", nargs="?", default="sri")
-    parser.add_argument("environment", nargs="?", default="dev")
+    parser.add_argument("project", nargs="?", default="programming")
+    parser.add_argument("environment", nargs="?", default="python")
     parser.add_argument("region", nargs="?", default="us-east-1")
     parser.add_argument(
         "--yes",
@@ -81,7 +81,7 @@ def list_named_vpc(ec2: Any, prefix: str) -> str | None:
     response = ec2.describe_vpcs(
         Filters=[
             {"Name": "tag:Name", "Values": [f"{prefix}-vpc"]},
-            {"Name": "cidr-block", "Values": ["10.1.0.0/16"]},
+            {"Name": "cidr-block", "Values": ["10.2.0.0/16"]},
         ]
     )
     vpcs = response["Vpcs"]
@@ -416,18 +416,20 @@ def delete_networking(
             route53.get_waiter("resource_record_sets_changed").wait(
                 Id=change["ChangeInfo"]["Id"].rsplit("/", 1)[-1]
             )
-        route53.disassociate_vpc_from_hosted_zone(
-            HostedZoneId=zone_id, VPC={"VPCRegion": region, "VPCId": vpc_id}
-        )
-        remaining_vpcs = route53.get_hosted_zone(Id=zone_id).get("VPCs", [])
-        if not remaining_vpcs:
-            route53.delete_hosted_zone(Id=zone_id)
-            LOG.info("Deleted private hosted zone %s.", zone_id)
-        else:
+        # A private zone's last VPC association can't be removed
+        # (LastVPCAssociation); deleting the zone drops it. Only disassociate
+        # when other VPCs still use the zone.
+        if len(associated_vpcs) > 1:
+            route53.disassociate_vpc_from_hosted_zone(
+                HostedZoneId=zone_id, VPC={"VPCRegion": region, "VPCId": vpc_id}
+            )
             LOG.warning(
                 "Kept hosted zone %s because other VPCs are still associated.",
                 zone_id,
             )
+        else:
+            route53.delete_hosted_zone(Id=zone_id)
+            LOG.info("Deleted private hosted zone %s.", zone_id)
 
     for page in route53.get_paginator("list_hosted_zones").paginate():
         for zone in page["HostedZones"]:
