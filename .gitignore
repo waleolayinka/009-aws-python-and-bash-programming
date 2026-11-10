@@ -1,0 +1,18 @@
+# Local environment / credentials
+.env
+.env.*
+*.pem
+*.key
+.aws/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
