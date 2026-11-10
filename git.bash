@@ -35,7 +35,9 @@ git commit -m "Update bash branch"
 # Push changes to the remote repository
 git push origin bash
 # Merge bash branch into main branch
-git checkout main && git merge bash && git push origin main
+git fetch origin
+git checkout main 2>/dev/null || git checkout -b main --track origin/main
+git merge bash && git push origin main
 
 # Done banner only when the script's last command succeeded; keep its exit status
 _rc=$?
