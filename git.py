@@ -56,6 +56,16 @@ def print_current_branch():
         exit(1)
 
 
+# Done banner only when the script's last command succeeded; keep its exit status
+def print_done_banner():
+    try:
+        import pyfiglet
+        banner = pyfiglet.figlet_format("Done", font="slant")
+        print(banner)
+    except ImportError:
+        print("Done")
+
+
 if __name__ == "__main__":
     commit_message = " ".join(sys.argv[1:]) if len(
         sys.argv) > 1 else "Update python branch"
@@ -75,14 +85,3 @@ if __name__ == "__main__":
     except subprocess.CalledProcessError as e:
         print(f"Error: {e}")
         sys.exit(1)
-
-# Done banner only when the script's last command succeeded; keep its exit status
-
-
-def print_done_banner():
-    try:
-        import pyfiglet
-        banner = pyfiglet.figlet_format("Done", font="slant")
-        print(banner)
-    except ImportError:
-        print("Done")
