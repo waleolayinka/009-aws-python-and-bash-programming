@@ -2,7 +2,7 @@
 
 
         # git bash script to add, commit, push to branch bash and merge to main branch
-        # usage: ./git.sh
+        # usage: ./git.sh [commit message]
 
 
 # From https://patorjk.com/software/taag - big "slant" banner if figlet or pyfiglet is installed
