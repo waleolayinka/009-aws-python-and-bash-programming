@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# Windows (Git Bash/MSYS) fixes for the native aws.exe/jq.exe:
+#  - they end lines with CRLF; the stray \r ends up inside captured IDs/names and
+#    AWS rejects them, so strip it at the source.
+#  - Git Bash rewrites args that look like Unix paths (e.g. the SSM name
+#    /dev/sri/database/password -> C:/Program Files/Git/dev/...); disable that for aws.
+if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
+  aws() { MSYS_NO_PATHCONV=1 command aws "$@" | tr -d '\r'; }
+  jq() { command jq "$@" | tr -d '\r'; }
+fi
+
 usage() {
   cat <<'USAGE'
 Usage: destroy-awsresources.sh [project] [environment] [region] [--yes]
@@ -291,7 +301,9 @@ delete_iam_resources() {
 delete_network_resources() {
   banner "Networking Resources"
   local vpc_id="$1"
-  local hosted_zone_name="${project_name}-${environment_name}-postgresql.db.internal."
+  # Must match the zone name deploy creates; the Name tag + VPC checks below
+  # ensure only this deployment's zone is removed.
+  local hosted_zone_name="db.internal."
   local hosted_zones
   hosted_zones="$(aws route53 list-hosted-zones --output json | jq -r \
     --arg name "$hosted_zone_name" \
@@ -411,18 +423,23 @@ delete_network_resources() {
     done
   fi
 
-  local security_groups
-  security_groups="$(aws ec2 describe-security-groups \
-    --filters "Name=vpc-id,Values=${vpc_id}" \
-    --query "SecurityGroups[?Tags[?Key=='Name' && (Value=='${name_prefix}-EC2SecurityGroup' || Value=='${name_prefix}-RDSSecurityGroup')]].GroupId" \
-    --output text)"
-  if ! none_or_empty "$security_groups"; then
-    local -a security_group_ids=()
-    read -r -a security_group_ids <<<"$security_groups"
-    for security_group_id in "${security_group_ids[@]}"; do
-      aws ec2 delete-security-group --group-id "$security_group_id"
-    done
-  fi
+  # RDS SG first: its ingress rule references the EC2 SG, which blocks
+  # deleting the EC2 SG (DependencyViolation) while the RDS SG still exists.
+  local security_groups sg_tag
+  for sg_tag in RDSSecurityGroup EC2SecurityGroup; do
+    security_groups="$(aws ec2 describe-security-groups \
+      --filters "Name=vpc-id,Values=${vpc_id}" "Name=tag:Name,Values=${name_prefix}-${sg_tag}" \
+      --query 'SecurityGroups[].GroupId' \
+      --output text)"
+    if ! none_or_empty "$security_groups"; then
+      local -a security_group_ids=()
+      read -r -a security_group_ids <<<"$security_groups"
+      for security_group_id in "${security_group_ids[@]}"; do
+        log INFO "Deleting security group ${security_group_id} (${name_prefix}-${sg_tag})."
+        aws ec2 delete-security-group --group-id "$security_group_id"
+      done
+    fi
+  done
 
   local internet_gateways
   internet_gateways="$(aws ec2 describe-internet-gateways \

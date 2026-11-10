@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# Windows (Git Bash/MSYS) fixes for the native aws.exe/jq.exe:
+#  - they end lines with CRLF; the stray \r ends up inside captured IDs/names and
+#    AWS rejects them, so strip it at the source.
+#  - Git Bash rewrites args that look like Unix paths (e.g. the SSM name
+#    /dev/sri/database/password -> C:/Program Files/Git/dev/...); disable that for aws.
+if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
+  aws() { MSYS_NO_PATHCONV=1 command aws "$@" | tr -d '\r'; }
+  jq() { command jq "$@" | tr -d '\r'; }
+fi
+
 usage() {
   cat <<'USAGE'
 Usage: deploy-awsresources.sh [project] [environment] [region]
@@ -60,6 +70,8 @@ done
 export AWS_DEFAULT_REGION="$region"
 umask 077
 work_dir="$(mktemp -d)"
+# aws.exe cannot read Git Bash /tmp paths; use the C:/... form on Windows.
+if command -v cygpath >/dev/null 2>&1; then work_dir="$(cygpath -m "$work_dir")"; fi
 trap 'rm -rf "$work_dir"' EXIT
 trap 'status=$?; log ERROR "Deployment failed at line ${BASH_LINENO[0]:-unknown} (exit ${status}). Resources already created in AWS were not rolled back."; exit "$status"' ERR
 
@@ -444,7 +456,6 @@ create_database_resources() {
       VpcSecurityGroupIds:[$security_group],
       EnablePerformanceInsights:true,
       EnableHttpEndpoint:false,
-      SkipFinalSnapshot:true,
       DBClusterParameterGroupName:$parameter_group,
       Tags:[{Key:"Name",Value:$name}]
     }' >"$work_dir/db-cluster.json"
