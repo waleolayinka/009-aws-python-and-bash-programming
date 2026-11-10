@@ -1,4 +1,21 @@
 #!/usr/bin/env bash
+#
+# Provision AWS resources with Bash and the AWS CLI instead of Terraform.
+#
+# Purpose: test Bash + AWS CLI as an alternative to an IaC tool for building
+# AWS infrastructure; see python-programming/ for the same stack in boto3.
+#
+# Resources created:
+#   Networking: VPC (10.1.0.0/16), public/private subnets in two AZs, internet
+#               gateway, per-AZ NAT gateways, route tables, security groups,
+#               and a private Route 53 zone (db.internal).
+#   Compute:    two private EC2 instances reachable only through SSM Session
+#               Manager: no key pair, no public IP. IAM role/instance profile
+#               and an encrypted S3 transfer bucket.
+#   Database:   Aurora PostgreSQL cluster with two instances in private
+#               subnets, not publicly accessible; reachable only from the EC2
+#               security group. Credentials in Secrets Manager and SSM.
+
 set -Eeuo pipefail
 
 # Windows (Git Bash/MSYS) fixes for the native aws.exe/jq.exe:
