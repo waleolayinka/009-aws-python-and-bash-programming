@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
-"""Provision the AWS resources defined by the Terraform compute, database, and networking modules."""
+"""Provision AWS resources with Python and boto3 instead of Terraform.
+
+Purpose: test Python (boto3) as an alternative to an IaC tool for building
+AWS infrastructure; see bash-programming/ for the same stack in Bash + AWS CLI.
+
+Resources created:
+  Networking: VPC (10.2.0.0/16), public/private subnets in two AZs, internet
+              gateway, per-AZ NAT gateways, route tables, security groups,
+              and a private Route 53 zone (db.internal).
+  Compute:    two private EC2 instances reachable only through SSM Session
+              Manager: no key pair, no public IP. IAM role/instance profile
+              and an encrypted S3 transfer bucket.
+  Database:   Aurora PostgreSQL cluster with two instances in private
+              subnets, not publicly accessible; reachable only from the EC2
+              security group. Credentials in Secrets Manager and SSM.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +32,8 @@ try:
     import boto3
     from botocore.exceptions import BotoCoreError, ClientError
 except ImportError as exc:
-    raise SystemExit("Install boto3 before running this script: python -m pip install boto3") from exc
+    raise SystemExit(
+        "Install boto3 before running this script: python -m pip install boto3") from exc
 
 
 LOG = logging.getLogger("deploy-awsresources")
@@ -96,7 +112,8 @@ def create_networking(
             CidrBlock=public_cidrs[index],
             AvailabilityZone=az,
             TagSpecifications=[
-                {"ResourceType": "subnet", "Tags": tags(f"{prefix}-public-{az}")}
+                {"ResourceType": "subnet", "Tags": tags(
+                    f"{prefix}-public-{az}")}
             ],
         )["Subnet"]["SubnetId"]
         ec2.modify_subnet_attribute(
@@ -109,7 +126,8 @@ def create_networking(
             CidrBlock=private_cidrs[index],
             AvailabilityZone=az,
             TagSpecifications=[
-                {"ResourceType": "subnet", "Tags": tags(f"{prefix}-private-{az}")}
+                {"ResourceType": "subnet", "Tags": tags(
+                    f"{prefix}-private-{az}")}
             ],
         )["Subnet"]["SubnetId"]
         ec2.modify_subnet_attribute(
@@ -225,7 +243,8 @@ def create_compute(
     iam = session.client("iam")
     s3 = session.client("s3")
     banner("Compute Resources")
-    LOG.info("Creating SSM roles, transfer bucket, security group, and two private EC2 instances.")
+    LOG.info(
+        "Creating SSM roles, transfer bucket, security group, and two private EC2 instances.")
 
     role_name = f"{prefix}-ec2-ssm-role"
     profile_name = f"{prefix}-ec2-ssm-instance-profile"
@@ -605,12 +624,14 @@ def main() -> int:
         print(f"Private database DNS: {database['dns_name']}")
         print(f"Credentials: Secrets Manager secret {database['secret_arn']}")
         print(f"SSM password parameter: {database['password_parameter']}")
-        LOG.info("Deployment completed. No SSH key or public EC2 address was created.")
+        LOG.info(
+            "Deployment completed. No SSH key or public EC2 address was created.")
         banner("Deployment Complete")
         return 0
     except (ValueError, BotoCoreError, ClientError) as exc:
         LOG.error("Deployment failed: %s", exc)
-        LOG.error("Resources already created in AWS were not automatically rolled back.")
+        LOG.error(
+            "Resources already created in AWS were not automatically rolled back.")
         return 1
 
 
