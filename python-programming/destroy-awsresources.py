@@ -375,7 +375,9 @@ def delete_networking(
     vpc_id: str,
 ) -> None:
     banner("Networking Resources")
-    expected_zone_name = f"{project}-{environment}-postgresql.db.internal."
+    # Must match the zone name deploy creates; the Name tag + VPC checks
+    # ensure only this deployment's zone is removed.
+    expected_zone_name = "db.internal."
 
     def delete_hosted_zone(zone: dict[str, Any]) -> None:
         if zone["Name"] != expected_zone_name or not zone["Config"]["PrivateZone"]:
