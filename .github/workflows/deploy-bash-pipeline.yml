@@ -1,0 +1,56 @@
+name: Deploy Bash AWS resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Project name
+        required: true
+        default: sri
+        type: string
+      environment:
+        description: Deployment environment
+        required: true
+        default: dev
+        type: string
+      region:
+        description: AWS region
+        required: true
+        default: us-east-1
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-bash-${{ inputs.project }}-${{ inputs.environment }}-${{ inputs.region }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy AWS resources
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      AWS_DEFAULT_REGION: ${{ inputs.region }}
+      PROJECT_NAME: ${{ inputs.project }}
+      ENVIRONMENT_NAME: ${{ inputs.environment }}
+      ADDITIONAL_RDS_SECURITY_GROUP_IDS: ${{ secrets.ADDITIONAL_RDS_SECURITY_GROUP_IDS }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ inputs.region }}
+
+      - name: Deploy Bash AWS resources
+        shell: bash
+        run: |
+          bash bash-programming/deploy-awsresources.sh \
+            "$PROJECT_NAME" \
+            "$ENVIRONMENT_NAME" \
+            "$AWS_DEFAULT_REGION"
