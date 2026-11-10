@@ -47,8 +47,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Deploy the networking, compute, and database AWS resources."
     )
-    parser.add_argument("project", nargs="?", default="sri")
-    parser.add_argument("environment", nargs="?", default="dev")
+    parser.add_argument("project", nargs="?", default="programming")
+    parser.add_argument("environment", nargs="?", default="python")
     parser.add_argument("region", nargs="?", default="us-east-1")
     return parser.parse_args()
 
@@ -77,7 +77,7 @@ def create_networking(
     LOG.info("Creating VPC, subnets, gateways, routes, and private DNS.")
 
     vpc_id = ec2.create_vpc(
-        CidrBlock="10.1.0.0/16",
+        CidrBlock="10.2.0.0/16",
         TagSpecifications=[
             {"ResourceType": "vpc", "Tags": tags(f"{prefix}-vpc")}
         ],
@@ -86,8 +86,8 @@ def create_networking(
     ec2.modify_vpc_attribute(VpcId=vpc_id, EnableDnsHostnames={"Value": True})
 
     azs = (f"{region}a", f"{region}b")
-    public_cidrs = ("10.1.1.0/24", "10.1.3.0/24")
-    private_cidrs = ("10.1.2.0/24", "10.1.4.0/24")
+    public_cidrs = ("10.2.1.0/24", "10.2.3.0/24")
+    private_cidrs = ("10.2.2.0/24", "10.2.4.0/24")
     public_subnet_ids: list[str] = []
     private_subnet_ids: list[str] = []
     for index, az in enumerate(azs):

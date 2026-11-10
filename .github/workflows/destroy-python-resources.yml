@@ -6,12 +6,12 @@ on:
       project:
         description: Project name
         required: true
-        default: sri
+        default: programming
         type: string
       environment:
         description: Deployment environment
         required: true
-        default: dev
+        default: python
         type: string
       region:
         description: AWS region
