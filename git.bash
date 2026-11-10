@@ -20,14 +20,14 @@ if ! [ -x "$(command -v git)" ]; then
   exit 1
 fi
 
-branch=$(git branch --show-current)
-echo "Current branch: $branch"
-
-if [ "$branch" != "bash" ]; then
-  echo "Error: You are not on the 'bash' branch. Please switch to the 'bash' branch and try again." >&2
-  exit 1
+# Switch to the bash branch (create tracking branch if it doesn't exist locally)
+git fetch origin
+git stash
+if ! git checkout bash 2>/dev/null; then
+    echo "Error: Failed to switch to the bash branch." >&2
+    exit 1
 fi
-
+git stash pop
 # Add all changes
 git add .
 # Commit changes with a message
